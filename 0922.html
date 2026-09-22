@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>數塊冒險：分數大冒險</title>
+<style>
+  :root {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    --panel-bg: rgba(0,0,0,0.72);
+    --panel-border: rgba(255,255,255,0.2);
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: #09090b;
+    overflow: hidden;
+    font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  }
+  #app { position: relative; width: 100vw; height: 100vh; background: #000; overflow: hidden; }
+
+  /* ---------- 登入畫面 ---------- */
+  #loginScreen {
+    position: absolute; inset: 0; z-index: 50;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #18181b; color: #fff; padding: 16px;
+  }
+  #loginBox {
+    background: #27272a; padding: 32px; border-radius: 12px;
+    border: 4px solid #3f3f46; box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    text-align: center; width: 100%; max-width: 380px;
+  }
+  #loginBox h1 { font-size: 24px; font-weight: 800; margin: 0 0 20px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  #loginBox p.tip { font-size: 12px; color: #a1a1aa; margin: -12px 0 20px; line-height: 1.6; }
+  #loginBox input {
+    width: 100%; padding: 12px; margin-bottom: 16px; font-size: 18px;
+    background: #3f3f46; border: 2px solid #52525b; border-radius: 6px; color: #fff; outline: none;
+  }
+  #loginBox input:focus { border-color: #3b82f6; }
+  #loginBox button {
+    width: 100%; padding: 12px; font-size: 18px; font-weight: 800;
+    background: #16a34a; color: #fff; border: none; border-radius: 6px; cursor: pointer;
+  }
+  #loginBox button:hover { background: #22c55e; }
+
+  /* ---------- HUD ---------- */
+  #hud {
+    position: absolute; top: 0; left: 0; width: 100%; z-index: 20;
+    padding: 16px; padding-top: calc(16px + env(safe-area-inset-top, 0px));
+    display: flex; justify-content: space-between; align-items: flex-start;
+    pointer-events: none;
+  }
+  #playerPanel {
+    background: var(--panel-bg); border: 2px solid var(--panel-border); border-radius: 8px;
+    padding: 12px; color: #fff; width: 290px; pointer-events: auto; backdrop-filter: blur(4px);
+    font-size: 13px;
+  }
+  #playerName { font-weight: 800; color: #60a5fa; display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  #sceneName { font-size: 10px; opacity: 0.7; margin-bottom: 8px; }
+
+  #heartsRow { margin-bottom: 8px; line-height: 1; }
+  .heart-slot { position: relative; display: inline-block; width: 15px; height: 15px; font-size: 15px; margin-right: 1px; }
+  .heart-bg { position: absolute; left: 0; top: 0; color: #3f3f46; }
+  .heart-fill { position: absolute; left: 0; top: 0; overflow: hidden; white-space: nowrap; color: #ef4444; }
+
+  #portalStatusWrap { font-size: 10px; font-weight: 700; margin-bottom: 8px; }
+  .status-fine { color: #4ade80; }
+  .status-broken { color: #ef4444; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  #hintBox { background: rgba(30,58,138,0.3); border: 1px solid rgba(96,165,250,0.3); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
+  #hintLabel { font-size: 9px; color: #93c5fd; font-weight: 900; text-transform: uppercase; display: block; margin-bottom: 4px; }
+  #hintText { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.7); }
+  #hintText.active { color: #facc15; animation: pulse 1.2s infinite; }
+
+  #equipRow { display: flex; gap: 6px; margin-bottom: 8px; }
+  .equip-slot {
+    width: 42px; height: 42px; border-radius: 6px; border: 2px solid rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+    background: rgba(255,255,255,0.05); position: relative; flex-direction: column;
+  }
+  .equip-slot.empty { opacity: 0.35; }
+  .equip-slot.filled { border-color: rgba(255,255,255,0.35); }
+  .equip-slot.broken { border-color: #ef4444; }
+  .equip-icon { line-height: 1; }
+  .equip-bar { width: 30px; height: 4px; background: rgba(255,255,255,0.15); border-radius: 2px; margin-top: 2px; overflow: hidden; }
+  .equip-bar-fill { height: 100%; background: #4ade80; }
+  .equip-slot.broken .equip-bar-fill { background: #ef4444; }
+
+  #systemNote { border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px; }
+  #systemNote .label { font-size: 10px; color: #86efac; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px; }
+  #systemNote p { font-size: 10px; color: rgba(255,255,255,0.6); line-height: 1.4; margin: 0; }
+
+  #rightPanel { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: auto; }
+  #bookBtn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 8px; border-radius: 6px; font-size: 20px; line-height: 1; }
+  #inventoryPanel {
+    background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 8px;
+    padding: 10px; color: #fff; font-size: 11px; width: 220px;
+  }
+  #inventoryPanel .title { font-weight: 800; color: #fde047; margin-bottom: 8px; font-size: 11px; }
+  #inventoryGrid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .inv-slot {
+    width: 60px; height: 62px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; font-family: inherit; padding: 2px;
+  }
+  .inv-slot:hover { background: rgba(255,255,255,0.18); }
+  .inv-slot.held { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.5); }
+  .inv-icon { font-size: 18px; line-height: 1; }
+  .inv-count { font-size: 10px; color: #fde047; font-weight: 700; }
+  .inv-name { font-size: 9px; color: rgba(255,255,255,0.7); text-align: center; line-height: 1.1; }
+  .inv-empty { opacity: 0.5; font-size: 10px; width: 100%; }
+  #heldBlockInfo { margin-top: 8px; font-size: 10px; color: #93c5fd; min-height: 12px; }
+
+  /* ---------- 對話視窗 ---------- */
+  #dialogOverlay {
+    position: absolute; inset: 0; z-index: 30; display: none;
+    align-items: center; justify-content: center; background: rgba(0,0,0,0.6);
+  }
+  #dialogBox {
+    background: #f4f4f5; padding: 32px; border-radius: 10px; border: 4px solid #27272a;
+    max-width: 420px; width: calc(100% - 32px); box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  }
+  #dialogName { font-size: 22px; font-weight: 800; color: #18181b; margin: 0 0 16px; }
+  #dialogPrompt { font-size: 17px; font-weight: 700; color: #27272a; margin-bottom: 16px; }
+  #dialogChoices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  #dialogChoices button {
+    padding: 12px 8px; background: #3b82f6; color: #fff; font-weight: 800; font-size: 17px;
+    border: none; border-radius: 6px; cursor: pointer;
+  }
+  #dialogChoices button:hover { background: #60a5fa; }
+  #dialogCloseBtn {
+    width: 100%; padding: 10px; background: #d4d4d8; color: #3f3f46; font-weight: 700;
+    border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
+  }
+  #dialogCloseBtn:hover { background: #a1a1aa; }
+
+  /* ---------- 提示訊息 (toast) ---------- */
+  #toastContainer {
+    position: absolute; bottom: 24px; left: 0; width: 100%; z-index: 40;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    pointer-events: none; padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .toast {
+    background: rgba(24,24,27,0.92); color: #fff; padding: 10px 18px; border-radius: 20px;
+    font-size: 13px; font-weight: 700; border: 1px solid rgba(255,255,255,0.15);
+    opacity: 0; transform: translateY(10px); transition: opacity 0.25s, transform 0.25s;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast-success { border-color: rgba(74,222,128,0.5); color: #86efac; }
+  .toast-fail { border-color: rgba(239,68,68,0.5); color: #fca5a5; }
+  .toast-info { border-color: rgba(96,165,250,0.5); color: #93c5fd; }
+
+  canvas { display: block; touch-action: none; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- 登入畫面 -->
+  <div id="loginScreen">
+    <div id="loginBox">
+      <h1>📦 數塊冒險：分數大冒險</h1>
+      <p class="tip">找村民答題可以獲得物資，記得裝備武器和防具再去冒險喔！</p>
+      <input id="usernameInput" type="text" placeholder="請輸入拓荒者暱稱...">
+      <button id="startBtn">進入世界</button>
+    </div>
+  </div>
+
+  <!-- 遊戲畫面 -->
+  <div id="gameScreen" style="display:none;">
+    <div id="hud">
+      <div id="playerPanel">
+        <div id="playerName">🧑 <span id="playerNameText"></span></div>
+        <div id="sceneName">場景：</div>
+        <div id="heartsRow"></div>
+        <div id="portalStatusWrap"><span id="portalStatus">🌌 能量: 3/3</span></div>
+        <div id="hintBox">
+          <span id="hintLabel">操作指令</span>
+          <div id="hintText">A/D 移動, Space 跳躍</div>
+        </div>
+        <div id="equipRow"></div>
+        <div id="systemNote">
+          <span class="label" id="modeLabel">隨機出題系統</span>
+          <p>找村民對話 [E] 答題可獲得物資；點擊背包物品即可裝備／使用。武器揮擊會消耗耐久，防具被打到也會消耗耐久，答對 2 題可全部修復！</p>
+        </div>
+      </div>
+      <div id="rightPanel">
+        <div id="bookBtn">📖</div>
+        <div id="inventoryPanel">
+          <div class="title">🎒 物資背包（點擊使用/裝備）</div>
+          <div id="inventoryGrid"><div class="inv-empty">尚無物資，找村民答題可以獲得！</div></div>
+          <div id="heldBlockInfo"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="dialogOverlay">
+      <div id="dialogBox">
+        <h2 id="dialogName"></h2>
+        <div id="dialogPromptWrap">
+          <p id="dialogPrompt"></p>
+          <div id="dialogChoices"></div>
+        </div>
+        <button id="dialogCloseBtn">關閉 [E]</button>
+      </div>
+    </div>
+
+    <div id="toastContainer"></div>
+
+    <canvas id="gameCanvas"></canvas>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =========================================================
+   * 區域 A：常數與場景設定
+   * =======================================================*/
+  var TILE_SIZE = 40, PLAYER_W = 30, PLAYER_H = 40, MONSTER_W = 30, MONSTER_H = 40;
+
+  var SCENE_DATA = {
+    HOME:       { sky: "#87CEEB", ground: "#4d924d", sub: "#795548", stone: "#808080", name: "主世界 (中心)",   width: 2000 },
+    VILLAGE:    { sky: "#E0F7FA", ground: "#9ccc65", sub: "#6d4c41", stone: "#5d4037", name: "天堂 (村民區)",   width: 4000 },
+    ADVENTURE:  { sky: "#2d0a31", ground: "#4a0e0e", sub: "#310a0a", stone: "#1a0505", name: "冒險大廳",       width: 3000 },
+    HELL_EASY:  { sky: "#421010", ground: "#6b1414", sub: "#440a0a", stone: "#220505", name: "普通地獄",       width: 2000 },
+    HELL_HARD:  { sky: "#000000", ground: "#2b0404", sub: "#1a0202", stone: "#000000", name: "進階地獄",       width: 2000 },
+    MANSION:    { sky: "#1a1a2e", ground: "#3c2a21", sub: "#261a14", stone: "#1a120d", name: "林地府邸",       width: 2000 },
+    JUNGLE:     { sky: "#0b3d0b", ground: "#1a5e1a", sub: "#114011", stone: "#092b09", name: "叢林神廟",       width: 2000 },
+    DESERT:     { sky: "#f4d03f", ground: "#d4ac0d", sub: "#b7950b", stone: "#9a7d0a", name: "沙漠神殿",       width: 2000 },
+  };
+
+  // 村民位置已左右相反；不再附帶題目提示文字
+  var VILLAGERS = [
+    { id: 1, name: "簡單長老", level: "EASY",      x: 3000 },
+    { id: 2, name: "普通工匠", level: "NORMAL",    x: 2400 },
+    { id: 3, name: "中上導師", level: "HARD",      x: 1800 },
+    { id: 4, name: "進階大師", level: "ADVANCED",  x: 1200 },
+    { id: 5, name: "挑戰勇者", level: "CHALLENGE", x: 600 },
+  ];
+
+  var REWARD_TABLE = {
+    EASY:      ["泥土", "石頭"],
+    NORMAL:    ["火把", "TNT"],
+    HARD:      ["石英", "黑石"],
+    ADVANCED:  ["鑽石劍", "鐵鎬", "皮革頭盔", "皮革衣服", "皮革褲子", "皮革鞋子"],
+    CHALLENGE: ["回血藥水"],
+  };
+  function getRandomReward(level) {
+    var pool = REWARD_TABLE[level] || ["泥土"];
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  // 物品定義：type 決定「使用」時的行為
+  var ITEM_DEFS = {
+    "泥土":     { type: "block", color: "#795548", icon: "🟫" },
+    "石頭":     { type: "block", color: "#9e9e9e", icon: "⬜" },
+    "火把":     { type: "block", color: "#ffb74d", icon: "🔥" },
+    "TNT":      { type: "block", color: "#e53935", icon: "🧨" },
+    "石英":     { type: "block", color: "#f5f5f0", icon: "⚪" },
+    "黑石":     { type: "block", color: "#2b2b2b", icon: "⬛" },
+    "鑽石劍":   { type: "weapon", damage: 2, maxDurability: 12, icon: "🗡️" },
+    "鐵鎬":     { type: "weapon", damage: 2, maxDurability: 12, icon: "⛏️" },
+    "皮革頭盔": { type: "armor", slot: "head", maxDurability: 20, icon: "🪖" },
+    "皮革衣服": { type: "armor", slot: "body", maxDurability: 20, icon: "👕" },
+    "皮革褲子": { type: "armor", slot: "legs", maxDurability: 20, icon: "👖" },
+    "皮革鞋子": { type: "armor", slot: "feet", maxDurability: 20, icon: "👟" },
+    "回血藥水": { type: "potion", heal: 2, icon: "🧪" }, // 恢復 2 顆心
+  };
+  var EQUIP_SLOTS = [
+    { key: "weapon", icon: "⚔️" },
+    { key: "head", icon: "🪖" },
+    { key: "body", icon: "👕" },
+    { key: "legs", icon: "👖" },
+    { key: "feet", icon: "👟" },
+  ];
+
+  /* =========================================================
+   * 區域 B：分數題目自動產生器
+   * =======================================================*/
+  function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { var t = b; b = a % b; a = t; } return a || 1; }
+  function simplifyFrac(num, den) { if (den < 0) { num = -num; den = -den; } var d = gcd(num, den); return [num / d, den / d]; }
+  function fracStr(num, den) { var s = simplifyFrac(num, den); return s[1] === 1 ? String(s[0]) : (s[0] + "/" + s[1]); }
+  function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+  function shuffleArr(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var tmp = a[i]; a[i] = a[j]; a[j] = tmp; }
+    return a;
+  }
+  function buildChoices(correct, wrongCandidates) {
+    var uniqueWrongs = [];
+    for (var i = 0; i < wrongCandidates.length; i++) {
+      var w = wrongCandidates[i];
+      if (w !== correct && uniqueWrongs.indexOf(w) === -1 && uniqueWrongs.length < 3) uniqueWrongs.push(w);
+    }
+    var guard = 0;
+    while (uniqueWrongs.length < 3 && guard < 30) {
+      guard++;
+      var filler = randInt(1, 9) + "/" + randInt(2, 9);
+      if (filler !== correct && uniqueWrongs.indexOf(filler) === -1) uniqueWrongs.push(filler);
+    }
+    var all = shuffleArr([correct].concat(uniqueWrongs));
+    return { choices: all, correctIndex: all.indexOf(correct) };
+  }
+
+  function genFractionEasy() {
+    var base = randInt(2, 6), mult = randInt(2, 4);
+    var num = randInt(1, base - 1) * mult, den = base * mult;
+    var correct = fracStr(num, den);
+    var wrongs = [num + "/" + den, fracStr(num + mult, den), fracStr(num, den - mult)];
+    var r = buildChoices(correct, wrongs);
+    return { prompt: "請將分數 " + num + "/" + den + " 化為最簡分數。", choices: r.choices, correctIndex: r.correctIndex };
+  }
+  function genFractionNormal() {
+    var den = randInt(4, 10);
+    var op = Math.random() < 0.5 ? "+" : "-";
+    var a, b, resNum;
+    if (op === "+") { a = randInt(1, den - 2); b = randInt(1, den - 1 - a); resNum = a + b; }
+    else { a = randInt(2, den - 1); b = randInt(1, a - 1); resNum = a - b; }
+    var correct = fracStr(resNum, den);
+    var wrongs = [resNum + "/" + den, fracStr(resNum, den + 1), fracStr(Math.max(resNum - 1, 1), den)];
+    var r = buildChoices(correct, wrongs);
+    return { prompt: "請計算：" + a + "/" + den + " " + op + " " + b + "/" + den + " = ?", choices: r.choices, correctIndex: r.correctIndex };
+  }
+  function genFractionHard() {
+    var den1 = randInt(2, 6), den2 = randInt(2, 6);
+    while (den2 === den1) den2 = randInt(2, 6);
+    var commonDen = den1 * den2;
+    var a = randInt(1, den1 - 1), b = randInt(1, den2 - 1);
+    var op = Math.random() < 0.5 ? "+" : "-";
+    var num1 = a * den2, num2 = b * den1;
+    var showA = a, showDenA = den1, showB = b, showDenB = den2;
+    if (op === "-" && num1 < num2) {
+      var tmpN = num1; num1 = num2; num2 = tmpN;
+      showA = b; showDenA = den2; showB = a; showDenB = den1;
+    }
+    var resNum = op === "+" ? num1 + num2 : num1 - num2;
+    var correct = fracStr(resNum, commonDen);
+    var directWrongDen = op === "+" ? showDenA + showDenB : Math.max(showDenA - showDenB, 1);
+    var directWrongNum = op === "+" ? showA + showB : showA - showB;
+    var wrongs = [fracStr(directWrongNum, directWrongDen), resNum + "/" + commonDen, fracStr(resNum + den1, commonDen)];
+    var r = buildChoices(correct, wrongs);
+    return { prompt: "請先通分，再計算：" + showA + "/" + showDenA + " " + op + " " + showB + "/" + showDenB + " = ?", choices: r.choices, correctIndex: r.correctIndex };
+  }
+  function genFractionAdvanced() {
+    var a = randInt(1, 6), b = randInt(2, 9), c = randInt(1, 6), d = randInt(2, 9);
+    var op = Math.random() < 0.5 ? "×" : "÷";
+    var resNum = op === "×" ? a * c : a * d;
+    var resDen = op === "×" ? b * d : b * c;
+    var correct = fracStr(resNum, resDen);
+    var wrongs = [resNum + "/" + resDen, fracStr(op === "×" ? a * d : a * c, op === "×" ? b * c : b * d), fracStr(resNum + 1, resDen)];
+    var r = buildChoices(correct, wrongs);
+    return { prompt: "請計算：" + a + "/" + b + " " + op + " " + c + "/" + d + " = ?", choices: r.choices, correctIndex: r.correctIndex };
+  }
+  function genFractionChallenge() {
+    var den1 = randInt(2, 5), den2 = randInt(2, 5);
+    while (den2 === den1) den2 = randInt(2, 5);
+    var a = randInt(1, den1 - 1), b = randInt(1, den2 - 1);
+    var commonDen = den1 * den2;
+    var sumNum = a * den2 + b * den1;
+    var mid = simplifyFrac(sumNum, commonDen);
+    var midNum = mid[0], midDen = mid[1];
+    var c = randInt(1, 4), d = randInt(2, 6);
+    var resNum = midNum * c, resDen = midDen * d;
+    var correct = fracStr(resNum, resDen);
+    var wrongs = [resNum + "/" + resDen, fracStr(midNum + c, midDen + d), fracStr(resNum + midDen, resDen)];
+    var r = buildChoices(correct, wrongs);
+    return { prompt: "終極挑戰：(" + a + "/" + den1 + " + " + b + "/" + den2 + ") × " + c + "/" + d + " = ?", choices: r.choices, correctIndex: r.correctIndex };
+  }
+  var QUESTION_GENERATORS = { EASY: genFractionEasy, NORMAL: genFractionNormal, HARD: genFractionHard, ADVANCED: genFractionAdvanced, CHALLENGE: genFractionChallenge };
+  function generateQuestionForLevel(level) { return (QUESTION_GENERATORS[level] || genFractionNormal)(); }
+  function pickRandomFightLevel() {
+    var pool = ["EASY", "EASY", "NORMAL", "NORMAL", "HARD"];
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  /* =========================================================
+   * 區域 C：音效（Web Audio，不需外部音檔）
+   * =======================================================*/
+  var audioCtx = null;
+  function playTone(freq, duration, type) {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.type = type || "sine";
+      osc.frequency.value = freq;
+      gain.gain.value = 0.16;
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+      osc.stop(audioCtx.currentTime + duration);
+    } catch (e) { /* 部分瀏覽器需互動後才能播放音效，忽略錯誤即可 */ }
+  }
+  function playCorrectSound() { playTone(880, 0.15); setTimeout(function () { playTone(1174, 0.18); }, 120); }
+  function playWrongSound() { playTone(160, 0.3, "sawtooth"); }
+  function playHitSound() { playTone(110, 0.15, "square"); }
+  function playPickupSound() { playTone(660, 0.12); }
+
+  /* =========================================================
+   * 區域 D：提示訊息 (toast)
+   * =======================================================*/
+  var toastContainer = document.getElementById("toastContainer");
+  function showToast(msg, kind) {
+    var t = document.createElement("div");
+    t.className = "toast toast-" + (kind || "info");
+    t.textContent = msg;
+    toastContainer.appendChild(t);
+    requestAnimationFrame(function () { t.classList.add("show"); });
+    setTimeout(function () {
+      t.classList.remove("show");
+      setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 300);
+    }, 2200);
+  }
+
+  /* =========================================================
+   * 區域 E：遊戲狀態
+   * =======================================================*/
+  var state = {
+    isLogged: false, username: "", isAdmin: false,
+    scene: "HOME",
+    playerHealth: 10, // 10 顆心，每次受傷 -0.5
+    playerHitCooldownUntil: 0,
+    equipment: { weapon: null, head: null, body: null, legs: null, feet: null },
+    heldBlock: null,
+    inventory: {},
+    portalUsage: 0, isPortalBroken: false, lastSpawnTime: Date.now(),
+    streak: { correct: 0, wrong: 0 },
+    monsters: [],
+    interactingNPC: null,
+    actionHint: "A/D 移動, Space 跳躍",
+    cameraOffsetX: 0,
+  };
+
+  var g = { px: 100, py: 100, vx: 0, vy: 0, isJumping: false, blocks: {}, keys: {} };
+  Object.keys(SCENE_DATA).forEach(function (k) { g.blocks[k] = []; });
+
+  /* =========================================================
+   * 區域 F：DOM 參照
+   * =======================================================*/
+  var el = {
+    loginScreen: document.getElementById("loginScreen"),
+    usernameInput: document.getElementById("usernameInput"),
+    startBtn: document.getElementById("startBtn"),
+    gameScreen: document.getElementById("gameScreen"),
+    canvas: document.getElementById("gameCanvas"),
+    playerNameText: document.getElementById("playerNameText"),
+    sceneName: document.getElementById("sceneName"),
+    heartsRow: document.getElementById("heartsRow"),
+    portalStatus: document.getElementById("portalStatus"),
+    hintText: document.getElementById("hintText"),
+    modeLabel: document.getElementById("modeLabel"),
+    equipRow: document.getElementById("equipRow"),
+    inventoryGrid: document.getElementById("inventoryGrid"),
+    heldBlockInfo: document.getElementById("heldBlockInfo"),
+    dialogOverlay: document.getElementById("dialogOverlay"),
+    dialogName: document.getElementById("dialogName"),
+    dialogPrompt: document.getElementById("dialogPrompt"),
+    dialogChoices: document.getElementById("dialogChoices"),
+    dialogCloseBtn: document.getElementById("dialogCloseBtn"),
+  };
+  var ctx = el.canvas.getContext("2d");
+
+  /* =========================================================
+   * 區域 G：存檔
+   * =======================================================*/
+  function saveGame() {
+    if (state.isAdmin) return;
+    try { localStorage.setItem("math_save_" + state.username, JSON.stringify({ blocks: g.blocks })); } catch (e) {}
+  }
+  function loadGame() {
+    try {
+      var saved = localStorage.getItem("math_save_" + state.username);
+      if (saved) {
+        var parsed = JSON.parse(saved);
+        g.blocks = parsed.blocks || {};
+        Object.keys(SCENE_DATA).forEach(function (k) { if (!g.blocks[k]) g.blocks[k] = []; });
+      }
+    } catch (e) {}
+  }
+
+  /* =========================================================
+   * 區域 H：背包 / 裝備
+   * =======================================================*/
+  function addToInventory(item) {
+    state.inventory[item] = (state.inventory[item] || 0) + 1;
+    playPickupSound();
+  }
+
+  function repairAllBrokenGear() {
+    var did = false;
+    var w = state.equipment.weapon;
+    if (w && w.durability <= 0) { w.durability = w.maxDurability; did = true; }
+    ["head", "body", "legs", "feet"].forEach(function (slot) {
+      var a = state.equipment[slot];
+      if (a && a.durability <= 0) { a.durability = a.maxDurability; did = true; }
+    });
+    return did;
+  }
+
+  function useItem(name) {
+    var def = ITEM_DEFS[name];
+    if (!def || (state.inventory[name] || 0) <= 0) return;
+
+    if (def.type === "block") {
+      state.heldBlock = name;
+      showToast("已選擇「" + name + "」，右鍵點擊地面即可放置！", "info");
+    } else if (def.type === "weapon") {
+      if (state.equipment.weapon) addToInventory(state.equipment.weapon.name);
+      state.inventory[name] -= 1;
+      if (state.inventory[name] <= 0) delete state.inventory[name];
+      state.equipment.weapon = { name: name, durability: def.maxDurability, maxDurability: def.maxDurability };
+      showToast("⚔️ 已裝備武器：" + name, "success");
+    } else if (def.type === "armor") {
+      var slot = def.slot;
+      if (state.equipment[slot]) addToInventory(state.equipment[slot].name);
+      state.inventory[name] -= 1;
+      if (state.inventory[name] <= 0) delete state.inventory[name];
+      state.equipment[slot] = { name: name, durability: def.maxDurability, maxDurability: def.maxDurability };
+      showToast("🛡️ 已裝備防具：" + name, "success");
+    } else if (def.type === "potion") {
+      state.inventory[name] -= 1;
+      if (state.inventory[name] <= 0) delete state.inventory[name];
+      state.playerHealth = Math.min(10, state.playerHealth + def.heal);
+      showToast("❤️ 喝下回血藥水，恢復了生命！", "success");
+      renderHealthUI();
+    }
+    renderInventoryUI();
+  }
+
+  function blockEmoji(name) {
+    var def = ITEM_DEFS[name];
+    return (def && def.icon) || "📦";
+  }
+
+  function renderHealthUI() {
+    var html = "";
+    for (var i = 0; i < 10; i++) {
+      var val = state.playerHealth - i;
+      var frac = val >= 1 ? 100 : (val > 0 ? 50 : 0);
+      html += '<span class="heart-slot"><span class="heart-bg">♥</span><span class="heart-fill" style="width:' + frac + '%">♥</span></span>';
+    }
+    el.heartsRow.innerHTML = html;
+  }
+
+  function renderEquipRow() {
+    el.equipRow.innerHTML = EQUIP_SLOTS.map(function (s) {
+      var item = state.equipment[s.key];
+      if (!item) return '<div class="equip-slot empty">' + s.icon + '</div>';
+      var pct = Math.max(0, Math.round((item.durability / item.maxDurability) * 100));
+      var brokenClass = item.durability <= 0 ? " broken" : "";
+      return '<div class="equip-slot filled' + brokenClass + '" title="' + item.name + " (" + item.durability + "/" + item.maxDurability + ')">' +
+        '<div class="equip-icon">' + s.icon + '</div>' +
+        '<div class="equip-bar"><div class="equip-bar-fill" style="width:' + pct + '%"></div></div>' +
+        '</div>';
+    }).join("");
+  }
+
+  function renderInventoryUI() {
+    renderEquipRow();
+    var names = Object.keys(state.inventory);
+    if (names.length === 0) {
+      el.inventoryGrid.innerHTML = '<div class="inv-empty">尚無物資，找村民答題可以獲得！</div>';
+    } else {
+      el.inventoryGrid.innerHTML = "";
+      names.forEach(function (name) {
+        var btn = document.createElement("button");
+        btn.className = "inv-slot" + (state.heldBlock === name ? " held" : "");
+        btn.innerHTML = '<div class="inv-icon">' + blockEmoji(name) + '</div>' +
+          '<div class="inv-count">x' + state.inventory[name] + '</div>' +
+          '<div class="inv-name">' + name + '</div>';
+        btn.addEventListener("click", function () { useItem(name); });
+        el.inventoryGrid.appendChild(btn);
+      });
+    }
+    el.heldBlockInfo.textContent = state.heldBlock ? ("目前手持方塊：" + state.heldBlock + "（右鍵放置）") : "";
+  }
+
+  /* =========================================================
+   * 區域 I：對話框
+   * =======================================================*/
+  function openDialog(npcData) {
+    state.interactingNPC = npcData;
+    el.dialogName.textContent = npcData.name;
+    if (npcData.currentTask) {
+      el.dialogPrompt.textContent = npcData.currentTask.prompt;
+      el.dialogChoices.innerHTML = "";
+      npcData.currentTask.choices.forEach(function (choice, idx) {
+        var btn = document.createElement("button");
+        btn.textContent = choice;
+        btn.addEventListener("click", function () { handleTaskComplete(idx === npcData.currentTask.correctIndex); });
+        el.dialogChoices.appendChild(btn);
+      });
+    } else {
+      el.dialogPrompt.textContent = "題目生成中...";
+      el.dialogChoices.innerHTML = "";
+    }
+    el.dialogOverlay.style.display = "flex";
+  }
+  function closeDialog() { state.interactingNPC = null; el.dialogOverlay.style.display = "none"; }
+  el.dialogCloseBtn.addEventListener("click", closeDialog);
+
+  function respawnPlayer() {
+    state.playerHealth = 10;
+    state.scene = "HOME";
+    g.px = 100; g.py = 100;
+    state.monsters = [];
+    showToast("💀 你倒下了，回到主世界重新出發！", "fail");
+    renderHealthUI();
+  }
+
+  function handleTaskComplete(isCorrect) {
+    var npc = state.interactingNPC;
+    if (isCorrect) {
+      var nextCorrect = state.streak.correct + 1;
+      state.streak = { correct: nextCorrect, wrong: 0 };
+      playCorrectSound();
+
+      if (npc && npc.isMonsterFight) {
+        var idx = state.monsters.indexOf(npc.monsterRef);
+        if (idx !== -1) state.monsters.splice(idx, 1);
+        showToast("🗡️ 答對了！你擊敗了怪物！", "success");
+      } else if (npc && npc.isRepairTask) {
+        state.isPortalBroken = false;
+        state.portalUsage = 0;
+        showToast("🌌 傳送門核心已修復，能量重新充滿！", "success");
+      } else if (npc && npc.level) {
+        var reward = getRandomReward(npc.level);
+        addToInventory(reward);
+        showToast("✅ 挑戰成功！獲得了「" + reward + "」x1", "success");
+      } else {
+        showToast("✅ 挑戰成功！", "success");
+      }
+
+      if (nextCorrect >= 2 && repairAllBrokenGear()) {
+        showToast("✨ 裝備耐久已全部修復！", "success");
+      }
+    } else {
+      var nextWrong = state.streak.wrong + 1;
+      state.streak = { correct: 0, wrong: nextWrong };
+      playWrongSound();
+
+      if (npc && npc.isRepairTask) showToast("❌ 維修失敗！傳送門能量依然不穩定。", "fail");
+      else if (npc && npc.isMonsterFight) showToast("❌ 答錯了！怪物還在攻擊你！", "fail");
+      else showToast("❌ 答錯了，請再接再厲。", "fail");
+    }
+    closeDialog();
+    renderInventoryUI();
+    renderHealthUI();
+  }
+
+  /* =========================================================
+   * 區域 J：核心引擎（物理、碰撞、渲染）
+   * =======================================================*/
+  function resizeCanvas() { el.canvas.width = window.innerWidth; el.canvas.height = window.innerHeight; }
+  window.addEventListener("resize", resizeCanvas);
+
+  function update() {
+    var now = Date.now();
+    var cfg = SCENE_DATA[state.scene];
+    var mapWidth = cfg.width;
+    var sceneBlocks = g.blocks[state.scene] || [];
+
+    if (g.keys["KeyA"] || g.keys["ArrowLeft"]) g.vx = -6;
+    else if (g.keys["KeyD"] || g.keys["ArrowRight"]) g.vx = 6;
+    else g.vx = 0;
+
+    if ((g.keys["Space"] || g.keys["ArrowUp"]) && !g.isJumping) { g.vy = -12; g.isJumping = true; }
+
+    var nextX = g.px + g.vx;
+    var collisionX = false;
+    sceneBlocks.forEach(function (b) {
+      if (nextX < b.x + TILE_SIZE && nextX + PLAYER_W > b.x && g.py < b.y + TILE_SIZE && g.py + PLAYER_H > b.y) collisionX = true;
+    });
+    if (!collisionX) g.px = nextX;
+
+    g.vy += 0.6;
+    var nextY = g.py + g.vy;
+    var onGround = false;
+    var groundY = el.canvas.height - 120;
+    if (nextY > groundY - PLAYER_H) { nextY = groundY - PLAYER_H; g.vy = 0; onGround = true; }
+    sceneBlocks.forEach(function (b) {
+      if (g.px < b.x + TILE_SIZE && g.px + PLAYER_W > b.x && nextY < b.y + TILE_SIZE && nextY + PLAYER_H > b.y) {
+        if (g.vy > 0) { nextY = b.y - PLAYER_H; g.vy = 0; onGround = true; }
+        else if (g.vy < 0) { nextY = b.y + TILE_SIZE; g.vy = 0; }
+      }
+    });
+    g.py = nextY;
+    g.isJumping = !onGround;
+
+    if (g.px < 0) g.px = 0;
+    if (g.px > mapWidth - PLAYER_W) g.px = mapWidth - PLAYER_W;
+    if (isNaN(g.py) || g.py > el.canvas.height) { g.py = el.canvas.height - 200; g.vy = 0; }
+
+    // 提示文字
+    var newHint = "";
+    var isNearLeft = g.px < 100, isNearRight = g.px > mapWidth - 150;
+    var nearNPC = state.scene === "VILLAGE" && VILLAGERS.find(function (n) { return Math.abs(g.px - n.x) < 60; });
+    if (nearNPC) newHint = "[E] 與 " + nearNPC.name + " 對話";
+    else if (isNearLeft || isNearRight) newHint = state.isPortalBroken ? "[W] 修理傳送核心" : "[W] 進入傳送門";
+    else newHint = "A/D 移動, Space 跳躍";
+    if (newHint !== state.actionHint) state.actionHint = newHint;
+
+    // 怪物生成
+    if (state.scene === "ADVENTURE" && state.monsters.length < 5 && Math.random() < 0.005) {
+      state.monsters.push({ x: g.px + 800, y: el.canvas.height - 160, hp: 3, hitCount: 0 });
+    }
+    if (now - state.lastSpawnTime > 45000 && state.monsters.length < 5) {
+      var spawnSide = Math.random() > 0.5 ? 1 : -1;
+      state.monsters.push({ x: g.px + spawnSide * 600, y: el.canvas.height - 160, hp: 3, hitCount: 0 });
+      state.lastSpawnTime = now;
+    }
+
+    // 怪物追蹤玩家
+    state.monsters.forEach(function (m) {
+      var dist = g.px - m.x, speed = 1.2;
+      if (Math.abs(dist) < 800 && Math.abs(dist) > 5) m.x += dist > 0 ? speed : -speed;
+    });
+
+    // 怪物攻擊玩家（有冷卻時間，避免每幀連續扣血）
+    if (!state.interactingNPC) {
+      for (var i = 0; i < state.monsters.length; i++) {
+        var m = state.monsters[i];
+        var overlap = g.px < m.x + MONSTER_W && g.px + PLAYER_W > m.x && g.py < m.y + MONSTER_H && g.py + PLAYER_H > m.y;
+        if (overlap && now >= state.playerHitCooldownUntil) {
+          var hasArmor = ["head", "body", "legs", "feet"].some(function (slot) { var a = state.equipment[slot]; return a && a.durability > 0; });
+          var dmg = hasArmor ? 0.25 : 0.5;
+          state.playerHealth = Math.max(0, state.playerHealth - dmg);
+          state.playerHitCooldownUntil = now + 800;
+          m.hitCount = (m.hitCount || 0) + 1;
+          playHitSound();
+          showToast("😵 被怪物打到了！-" + dmg + " 生命", "fail");
+
+          ["head", "body", "legs", "feet"].forEach(function (slot) {
+            var a = state.equipment[slot];
+            if (a && a.durability > 0) {
+              a.durability -= 1;
+              if (a.durability <= 0) { a.durability = 0; showToast("🛡️ " + a.name + " 耐久耗盡了！找村民答題可以修復。", "fail"); }
+            }
+          });
+          renderInventoryUI();
+          renderHealthUI();
+
+          if (m.hitCount >= 3) {
+            m.hitCount = 0;
+            openDialog({ name: "反擊挑戰！", currentTask: generateQuestionForLevel(pickRandomFightLevel()), isMonsterFight: true, monsterRef: m });
+          }
+
+          if (state.playerHealth <= 0) { respawnPlayer(); }
+          break; // 一幀只處理一次受傷，避免多隻怪物同時觸發混亂
+        }
+      }
+    }
+
+    // 輕量 HUD（場景名 / 提示 / 傳送門能量）
+    el.sceneName.textContent = "場景：" + SCENE_DATA[state.scene].name;
+    el.hintText.textContent = state.actionHint;
+    el.hintText.className = state.actionHint.indexOf("[") !== -1 ? "active" : "";
+    el.portalStatus.textContent = "🌌 能量: " + (3 - state.portalUsage) + "/3";
+    el.portalStatus.className = state.isPortalBroken ? "status-broken" : "status-fine";
+  }
+
+  function drawPortal(x, txt, color, w) {
+    w = w || 40;
+    ctx.fillStyle = color;
+    ctx.fillRect(x, el.canvas.height - 250, w, 130);
+    ctx.fillStyle = "white";
+    ctx.font = "14px sans-serif";
+    ctx.fillText(txt, x, el.canvas.height - 260);
+  }
+
+  function draw() {
+    var cfg = SCENE_DATA[state.scene];
+    var mapWidth = cfg.width;
+    var sceneBlocks = g.blocks[state.scene] || [];
+
+    var offsetX = g.px - el.canvas.width / 2;
+    if (offsetX < 0) offsetX = 0;
+    if (offsetX > mapWidth - el.canvas.width) offsetX = mapWidth - el.canvas.width;
+    state.cameraOffsetX = offsetX;
+
+    ctx.fillStyle = cfg.sky;
+    ctx.fillRect(0, 0, el.canvas.width, el.canvas.height);
+
+    ctx.save();
+    ctx.translate(-Math.floor(offsetX), 0);
+
+    ctx.fillStyle = cfg.ground; ctx.fillRect(0, el.canvas.height - 120, mapWidth, 40);
+    ctx.fillStyle = cfg.sub;    ctx.fillRect(0, el.canvas.height - 80, mapWidth, 40);
+    ctx.fillStyle = cfg.stone;  ctx.fillRect(0, el.canvas.height - 40, mapWidth, 40);
+
+    // 玩家放置的方塊（依物品種類上色）
+    sceneBlocks.forEach(function (b) {
+      var def = ITEM_DEFS[b.type];
+      ctx.fillStyle = (def && def.color) || "#8d6e63";
+      ctx.fillRect(b.x, b.y, TILE_SIZE, TILE_SIZE);
+      ctx.strokeStyle = "rgba(0,0,0,0.25)";
+      ctx.strokeRect(b.x + 0.5, b.y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+    });
+
+    if (state.scene === "HOME") {
+      drawPortal(10, "天堂 (左)", "cyan");
+      drawPortal(mapWidth - 50, "冒險區 (右)", "purple");
+    } else if (state.scene === "VILLAGE") {
+      drawPortal(10, "↩ 返回", "white");
+      drawPortal(mapWidth - 50, "回主頁面", "cyan");
+      VILLAGERS.forEach(function (n) {
+        ctx.fillStyle = "#ffcc80"; ctx.fillRect(n.x, el.canvas.height - 160, 30, 40);
+        ctx.fillStyle = "black"; ctx.font = "13px sans-serif"; ctx.fillText(n.name, n.x - 10, el.canvas.height - 170);
+      });
+    } else if (state.scene === "ADVENTURE") {
+      drawPortal(10, "↩ 返回", "white");
+      var branches = ["普通地獄", "進階地獄", "林地府邸", "叢林神廟", "沙漠神殿"];
+      branches.forEach(function (name, i) { drawPortal(800 + i * 400, name, "orange", 60); });
+    } else {
+      drawPortal(10, "↩ 返回冒險區", "white");
+    }
+
+    ctx.fillStyle = "red";
+    state.monsters.forEach(function (m) {
+      ctx.fillRect(m.x, m.y, MONSTER_W, MONSTER_H);
+      ctx.fillStyle = "green";
+      ctx.fillRect(m.x, m.y - 10, (m.hp / 3) * 30, 5);
+      ctx.fillStyle = "red";
+    });
+
+    var isInvulnBlink = Date.now() < state.playerHitCooldownUntil && Math.floor(Date.now() / 100) % 2 === 0;
+    ctx.fillStyle = isInvulnBlink ? "#93c5fd" : "#3498db";
+    ctx.fillRect(g.px, g.py, PLAYER_W, PLAYER_H);
+
+    ctx.restore();
+  }
+
+  var animationId;
+  function loop() {
+    if (!state.interactingNPC) update();
+    else { el.sceneName.textContent = "場景：" + SCENE_DATA[state.scene].name; }
+    draw();
+    animationId = requestAnimationFrame(loop);
+  }
+
+  /* =========================================================
+   * 區域 K：戰鬥
+   * =======================================================*/
+  function attackMonster(m) {
+    var weapon = state.equipment.weapon;
+    var usingWeapon = !!(weapon && weapon.durability > 0);
+    var damage = usingWeapon ? (ITEM_DEFS[weapon.name] ? ITEM_DEFS[weapon.name].damage : 2) : 1; // 空手攻擊效果不佳
+    m.hp -= damage;
+    playHitSound();
+
+    if (usingWeapon) {
+      weapon.durability -= 1;
+      if (weapon.durability <= 0) {
+        weapon.durability = 0;
+        showToast("⚔️ " + weapon.name + " 耐久耗盡了！找村民答題可以修復。", "fail");
+      }
+      renderInventoryUI();
+    }
+
+    if (m.hp <= 0) {
+      var idx = state.monsters.indexOf(m);
+      if (idx !== -1) state.monsters.splice(idx, 1);
+      showToast("💥 擊敗了一個怪物！", "success");
+    }
+  }
+
+  /* =========================================================
+   * 區域 L：輸入處理
+   * =======================================================*/
+  function handleKeyDown(e) {
+    if (!state.isLogged) return;
+    g.keys[e.code] = true;
+    if (["Space", "ArrowUp", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyD", "KeyS"].indexOf(e.code) !== -1) e.preventDefault();
+
+    var cfg = SCENE_DATA[state.scene];
+    var mapWidth = cfg.width;
+
+    if (e.code === "KeyW" || e.code === "ArrowUp") {
+      var isNearLeft = g.px < 100, isNearRight = g.px > mapWidth - 150;
+      var adventurePortalTarget = null;
+      if (state.scene === "ADVENTURE") {
+        var branches = ["HELL_EASY", "HELL_HARD", "MANSION", "JUNGLE", "DESERT"];
+        for (var i = 0; i < branches.length; i++) {
+          if (Math.abs(g.px - (800 + i * 400)) < 60) { adventurePortalTarget = branches[i]; break; }
+        }
+      }
+      if (isNearLeft || isNearRight || adventurePortalTarget) {
+        if (state.isPortalBroken) {
+          var levels = Object.keys(QUESTION_GENERATORS);
+          var randomLevel = levels[Math.floor(Math.random() * levels.length)];
+          openDialog({ name: "傳送門核心系統", currentTask: generateQuestionForLevel(randomLevel), isRepairTask: true });
+          return;
+        }
+        if (isNearLeft) {
+          if (state.scene === "HOME") { state.scene = "VILLAGE"; g.px = 3800; }
+          else if (state.scene === "VILLAGE") { state.scene = "HOME"; g.px = 100; }
+          else if (state.scene === "ADVENTURE") { state.scene = "HOME"; g.px = 1800; }
+          else { state.scene = "ADVENTURE"; g.px = 1000; }
+        } else if (isNearRight) {
+          if (state.scene === "HOME") { state.scene = "ADVENTURE"; g.px = 100; }
+          else if (state.scene === "VILLAGE") { state.scene = "HOME"; g.px = 100; }
+        } else if (adventurePortalTarget) {
+          state.scene = adventurePortalTarget; g.px = 100;
+        }
+        state.portalUsage += 1;
+        if (state.portalUsage >= 3) state.isPortalBroken = true;
+        state.monsters = [];
+        return;
+      }
+    }
+
+    if (e.code === "KeyE") {
+      if (state.interactingNPC) { closeDialog(); return; }
+      if (state.scene === "VILLAGE") {
+        var npc = VILLAGERS.find(function (n) { return Math.abs(g.px - n.x) < 60; });
+        if (npc) openDialog(Object.assign({}, npc, { currentTask: generateQuestionForLevel(npc.level) }));
+      }
+    }
+  }
+  function handleKeyUp(e) { g.keys[e.code] = false; }
+
+  function handleMouseDown(e) {
+    if (!state.isLogged || state.interactingNPC) return;
+    var rect = el.canvas.getBoundingClientRect();
+    var worldX = (e.clientX - rect.left) + state.cameraOffsetX;
+    var worldY = (e.clientY - rect.top);
+    var gridX = Math.floor(worldX / TILE_SIZE) * TILE_SIZE; // 只能對齊格點，不會出現 1.5 格的位置
+    var gridY = Math.floor(worldY / TILE_SIZE) * TILE_SIZE;
+
+    // 優先判定是否點到怪物 → 攻擊
+    var hitMonster = null;
+    for (var i = 0; i < state.monsters.length; i++) {
+      var m = state.monsters[i];
+      if (worldX >= m.x && worldX <= m.x + MONSTER_W && worldY >= m.y && worldY <= m.y + MONSTER_H) { hitMonster = m; break; }
+    }
+    if (hitMonster && e.button === 0) { attackMonster(hitMonster); return; }
+
+    if (e.button === 2) { // 右鍵放置（需持有方塊）
+      if (!state.heldBlock || (state.inventory[state.heldBlock] || 0) <= 0) {
+        showToast("請先在背包選擇要放置的方塊！", "info");
+        return;
+      }
+      if (!g.blocks[state.scene]) g.blocks[state.scene] = [];
+      var already = g.blocks[state.scene].some(function (b) { return b.x === gridX && b.y === gridY; });
+      if (!already) {
+        g.blocks[state.scene].push({ x: gridX, y: gridY, type: state.heldBlock });
+        state.inventory[state.heldBlock] -= 1;
+        if (state.inventory[state.heldBlock] <= 0) { delete state.inventory[state.heldBlock]; state.heldBlock = null; }
+        renderInventoryUI();
+      }
+    } else if (e.button === 0) { // 左鍵挖掘（歸還背包）
+      var list = g.blocks[state.scene] || [];
+      var idx2 = -1;
+      for (var j = 0; j < list.length; j++) { if (list[j].x === gridX && list[j].y === gridY) { idx2 = j; break; } }
+      if (idx2 !== -1) {
+        var removed = list.splice(idx2, 1)[0];
+        addToInventory(removed.type || "泥土");
+        renderInventoryUI();
+      }
+    }
+    saveGame();
+  }
+
+  window.addEventListener("keydown", handleKeyDown);
+  window.addEventListener("keyup", handleKeyUp);
+  window.addEventListener("mousedown", handleMouseDown);
+  window.oncontextmenu = function (e) { e.preventDefault(); };
+
+  /* =========================================================
+   * 區域 M：登入
+   * =======================================================*/
+  function handleStart() {
+    var username = el.usernameInput.value.trim();
+    if (!username) return;
+    state.username = username;
+
+    if (username === "TEACHER_L") {
+      state.isAdmin = true;
+      state.equipment.weapon = { name: "教師之劍", durability: 999, maxDurability: 999 };
+      state.inventory = { "泥土": 99, "石頭": 99, "火把": 99, "TNT": 99, "石英": 99, "黑石": 99, "回血藥水": 99 };
+    } else {
+      state.isAdmin = false;
+      loadGame();
+    }
+    state.isLogged = true;
+
+    el.loginScreen.style.display = "none";
+    el.gameScreen.style.display = "block";
+    resizeCanvas();
+    el.playerNameText.textContent = state.username + (state.isAdmin ? "（老師）" : "");
+    el.modeLabel.textContent = state.isAdmin ? "老師模式" : "隨機出題系統";
+    renderHealthUI();
+    renderInventoryUI();
+    loop();
+  }
+  el.startBtn.addEventListener("click", handleStart);
+  el.usernameInput.addEventListener("keydown", function (e) { if (e.key === "Enter") handleStart(); });
+
+})();
+</script>
+</body>
+</html>
